@@ -14,9 +14,15 @@ A command-line tool to download videos from Wistia hosting platform. Supports mu
 
 Download the latest pre-built binaries from the releases section for your platform:
 
-- **macOS**: `wistia-downloader-macos-amd64` (Intel) or `wistia-downloader-macos-arm64` (Apple Silicon)
-- **Linux**: `wistia-downloader-linux-amd64` (Intel/AMD) or `wistia-downloader-linux-arm64` (ARM)
-- **Windows**: `wistia-downloader-windows-amd64.exe` (Intel/AMD) or `wistia-downloader-windows-arm64.exe` (ARM)
+- **macOS**: 
+  - Intel: [`wistia-downloader-macos-amd64`](build/wistia-downloader-macos-amd64) | [`tar.gz`](build/wistia-downloader-macos-amd64-1.0.0.tar.gz)
+  - Apple Silicon: [`wistia-downloader-macos-arm64`](build/wistia-downloader-macos-arm64) | [`tar.gz`](build/wistia-downloader-macos-arm64-1.0.0.tar.gz)
+- **Linux**: 
+  - Intel/AMD: [`wistia-downloader-linux-amd64`](build/wistia-downloader-linux-amd64) | [`tar.gz`](build/wistia-downloader-linux-amd64-1.0.0.tar.gz)
+  - ARM: [`wistia-downloader-linux-arm64`](build/wistia-downloader-linux-arm64) | [`tar.gz`](build/wistia-downloader-linux-arm64-1.0.0.tar.gz)
+- **Windows**: 
+  - Intel/AMD: [`wistia-downloader-windows-amd64.exe`](build/wistia-downloader-windows-amd64.exe) | [`zip`](build/wistia-downloader-windows-amd64.exe-1.0.0.zip)
+  - ARM: [`wistia-downloader-windows-arm64.exe`](build/wistia-downloader-windows-arm64.exe) | [`zip`](build/wistia-downloader-windows-arm64.exe-1.0.0.zip)
 
 ### Build from Source
 
