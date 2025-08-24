@@ -130,15 +130,3 @@ make install-deps
 # Development build (with debug info)
 make build-dev
 ```
-
-## Examples
-
-### Download using video ID
-```bash
-./wistia-downloader -id abc123def -o "training-video.mp4"
-```
-
-### Download from page URL
-```bash
-./wistia-downloader -url "https://company.wistia.com/medias/xyz789" -o "presentation.mp4"
-```
