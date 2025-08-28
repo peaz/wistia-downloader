@@ -17,6 +17,12 @@ Download the latest pre-built binaries from the releases section for your platfo
 - **macOS**: 
   - Intel: [`wistia-downloader-macos-amd64-1.0.1.tar.gz`](build/wistia-downloader-macos-amd64-1.0.1.tar.gz)
   - Apple Silicon: [`wistia-downloader-macos-arm64-1.0.1.tar.gz`](build/wistia-downloader-macos-arm64-1.0.1.tar.gz)
+  
+  **Note for macOS users**: You may need to disable Gatekeeper to run the binary. After extracting, run:
+  ```bash
+  sudo xattr -rd com.apple.quarantine ./wistia-downloader-macos-arm64
+  ```
+  Ensure the name of the binary reflects the version you are running.
 - **Linux**: 
   - Intel/AMD: [`wistia-downloader-linux-amd64-1.0.1.tar.gz`](build/wistia-downloader-linux-amd64-1.0.1.tar.gz)
   - ARM: [`wistia-downloader-linux-arm64-1.0.1.tar.gz`](build/wistia-downloader-linux-arm64-1.0.1.tar.gz)
