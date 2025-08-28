@@ -1,2 +1,8 @@
 resource
 .DS_Store
+build/wistia-downloader-linux-amd64
+build/wistia-downloader-linux-arm64
+build/wistia-downloader-macos-amd64
+build/wistia-downloader-macos-arm64
+build/wistia-downloader-windows-amd64.exe
+build/wistia-downloader-windows-arm64.exe
