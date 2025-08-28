@@ -28,12 +28,19 @@ func main() {
 		}
 		fmt.Println("Found video ID from HTML snippet:", id)
 	} else if *pageURL != "" {
-		id = extractVideoIDFromPage(*pageURL)
-		if id == "" {
-			fmt.Println("Could not find Wistia video ID in page.")
-			os.Exit(1)
+		// First check if the URL contains wmediaid parameter
+		id = extractVideoIDFromURL(*pageURL)
+		if id != "" {
+			fmt.Println("Found video ID from URL parameter:", id)
+		} else {
+			// If no wmediaid found, try extracting from page content
+			id = extractVideoIDFromPage(*pageURL)
+			if id == "" {
+				fmt.Println("Could not find Wistia video ID in page.")
+				os.Exit(1)
+			}
+			fmt.Println("Found video ID:", id)
 		}
-		fmt.Println("Found video ID:", id)
 	} else {
 		fmt.Println("Usage: wistia-downloader -id <videoID> OR -url <WistiaPageURL> OR -clipboard <HTMLSnippet> [-o <output.mp4>]")
 		os.Exit(1)
@@ -93,6 +100,17 @@ func extractVideoURL(body string) string {
 	// Try "type":"hd_mp4_video"
 	re = regexp.MustCompile(`"type":"hd_mp4_video".*?"url":"(http[^"]+)"`)
 	match = re.FindStringSubmatch(body)
+	if len(match) > 1 {
+		return match[1]
+	}
+	return ""
+}
+
+func extractVideoIDFromURL(url string) string {
+	// Extract video ID from URL parameters, specifically wmediaid
+	// Example: https://fast.wistia.com/embed/channel/xk553pblxt?wchannelid=xk553pblxt&wmediaid=r33ol54chk
+	re := regexp.MustCompile(`[?&]wmediaid=([a-zA-Z0-9]+)`)
+	match := re.FindStringSubmatch(url)
 	if len(match) > 1 {
 		return match[1]
 	}
