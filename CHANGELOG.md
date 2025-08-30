@@ -33,7 +33,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Updated distribution archives from 1.0.1 to 1.1.0 versions
 - Enhanced build script and Makefile
 
-## [1.0.1] - 2025-08-XX
+## [1.0.1] - 2025-08-28
 
 ### Added
 - Initial release with core Wistia video downloading functionality
