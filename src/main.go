@@ -72,25 +72,43 @@ func main() {
 		}
 		fmt.Println("Found video ID from HTML snippet:", id)
 	} else if *pageURL != "" {
-		// Check if this is a channel page
+		// Check if this is a channel page with a specific video ID
 		if isChannelURL(*pageURL) {
-			fmt.Println("Detected Wistia channel page!")
-			handleChannelDownload(*pageURL, *output)
-			return
-		}
+			// Check if URL also contains wmediaid (specific video in channel)
+			videoIDFromURL := extractVideoIDFromURL(*pageURL)
+			if videoIDFromURL != "" {
+				fmt.Println("Detected Wistia channel page with specific video!")
+				fmt.Printf("Found channel and video ID: %s\n", videoIDFromURL)
 
-		// First check if the URL contains wmediaid parameter
-		id = extractVideoIDFromURL(*pageURL)
-		if id != "" {
-			fmt.Println("Found video ID from URL parameter:", id)
-		} else {
-			// If no wmediaid found, try extracting from page content
-			id = extractVideoIDFromPage(*pageURL)
-			if id == "" {
-				fmt.Println("Could not find Wistia video ID in page.")
-				os.Exit(1)
+				// Ask user what they want to download
+				choice := askUserChoice(videoIDFromURL)
+				if choice == "video" {
+					fmt.Println("Downloading single video...")
+					id = videoIDFromURL
+				} else {
+					fmt.Println("Downloading entire channel...")
+					handleChannelDownload(*pageURL, *output)
+					return
+				}
+			} else {
+				fmt.Println("Detected Wistia channel page!")
+				handleChannelDownload(*pageURL, *output)
+				return
 			}
-			fmt.Println("Found video ID:", id)
+		} else {
+			// First check if the URL contains wmediaid parameter
+			id = extractVideoIDFromURL(*pageURL)
+			if id != "" {
+				fmt.Println("Found video ID from URL parameter:", id)
+			} else {
+				// If no wmediaid found, try extracting from page content
+				id = extractVideoIDFromPage(*pageURL)
+				if id == "" {
+					fmt.Println("Could not find Wistia video ID in page.")
+					os.Exit(1)
+				}
+				fmt.Println("Found video ID:", id)
+			}
 		}
 	} else {
 		fmt.Println("Usage: wistia-downloader -id <videoID> OR -url <WistiaPageURL> OR -clipboard <HTMLSnippet> [-o <output.mp4>]")
@@ -99,12 +117,96 @@ func main() {
 	}
 
 	// Download single video
-	downloadSingleVideo(id, *output)
+	finalOutput := *output
+	if *output == "video.mp4" { // Check if using default filename
+		// Get video title and create a better filename
+		videoTitle := getVideoTitle(id)
+		if videoTitle != "" {
+			finalOutput = createSafeFilename(videoTitle) + ".mp4"
+			fmt.Printf("Using video title as filename: %s\n", finalOutput)
+		} else {
+			finalOutput = id + ".mp4"
+			fmt.Printf("Using video ID as filename: %s\n", finalOutput)
+		}
+	}
+	downloadSingleVideo(id, finalOutput)
 }
 
 // isChannelURL checks if the URL is a Wistia channel page
 func isChannelURL(pageURL string) bool {
 	return strings.Contains(pageURL, "/embed/channel/") || strings.Contains(pageURL, "wchannelid=")
+}
+
+// askUserChoice prompts user to choose between downloading single video or entire channel
+func askUserChoice(videoID string) string {
+	// Fetch video title for better user experience
+	videoTitle := getVideoTitle(videoID)
+	if videoTitle == "" {
+		videoTitle = videoID // Fallback to ID if title fetch fails
+	}
+
+	fmt.Println("\nWhat would you like to download?")
+	fmt.Printf("1) Just this video: \"%s\" (ID: %s)\n", videoTitle, videoID)
+	fmt.Println("2) Entire channel (all videos)")
+	fmt.Print("Enter your choice (1 or 2): ")
+
+	reader := bufio.NewReader(os.Stdin)
+	input, err := reader.ReadString('\n')
+	if err != nil {
+		fmt.Printf("Error reading input: %v\n", err)
+		os.Exit(1)
+	}
+
+	choice := strings.TrimSpace(input)
+	if choice == "1" {
+		return "video"
+	} else if choice == "2" {
+		return "channel"
+	} else {
+		fmt.Println("Invalid choice. Defaulting to single video download.")
+		return "video"
+	}
+}
+
+// getVideoTitle fetches the video title from Wistia API
+func getVideoTitle(videoID string) string {
+	assetResp, err := http.Get(fmt.Sprintf("https://fast.wistia.com/embed/medias/%s.json", videoID))
+	if err != nil {
+		return ""
+	}
+	defer assetResp.Body.Close()
+
+	var assetInfo map[string]interface{}
+	if err := json.NewDecoder(assetResp.Body).Decode(&assetInfo); err != nil {
+		return ""
+	}
+
+	media, ok := assetInfo["media"].(map[string]interface{})
+	if !ok {
+		return ""
+	}
+
+	name, ok := media["name"].(string)
+	if !ok {
+		return ""
+	}
+
+	return name
+}
+
+// createSafeFilename creates a safe filename from a video title
+func createSafeFilename(title string) string {
+	// Replace unsafe characters
+	filename := regexp.MustCompile(`[<>:"/\\|?*]`).ReplaceAllString(title, "_")
+	filename = regexp.MustCompile(`\s+`).ReplaceAllString(filename, " ")
+	filename = strings.TrimSpace(filename)
+
+	// Truncate if too long (leave room for .mp4 extension)
+	if len(filename) > 200 {
+		filename = filename[:200]
+	}
+
+	return filename
 }
 
 // handleChannelDownload processes a channel page and downloads all videos
@@ -188,6 +290,7 @@ func handleChannelDownload(pageURL, outputFlag string) {
 	// Download all videos
 	successful := 0
 	failed := 0
+	skipped := 0
 
 	for i, video := range videos {
 		fmt.Printf("\n[%d/%d] %s\n", i+1, len(videos), video.Title)
@@ -198,6 +301,7 @@ func handleChannelDownload(pageURL, outputFlag string) {
 		// Check if file already exists
 		if _, err := os.Stat(outputPath); err == nil {
 			fmt.Printf("⏭️  Skipping - file already exists: %s\n", filename+".mp4")
+			skipped++
 			continue
 		}
 
@@ -214,6 +318,7 @@ func handleChannelDownload(pageURL, outputFlag string) {
 	fmt.Println(strings.Repeat("=", 60))
 	fmt.Printf("📊 Download Summary:\n")
 	fmt.Printf("✅ Successful: %d\n", successful)
+	fmt.Printf("⏭️  Skipped: %d\n", skipped)
 	fmt.Printf("❌ Failed: %d\n", failed)
 	fmt.Printf("📁 Files saved to: %s/\n", downloadsDir)
 }
@@ -235,7 +340,7 @@ func extractVideoIDFromPage(pageURL string) string {
 	match := urlRe.FindStringSubmatch(pageURL)
 	if len(match) > 1 {
 		linkHashedId := match[1]
-		fmt.Printf("Extracted link hashed ID from URL structure: %s\n", linkHashedId)
+		// fmt.Printf("Extracted link hashed ID from URL structure: %s\n", linkHashedId) // Debug message hidden
 
 		// Try to resolve this link hash to get the actual video ID using GraphQL API
 		if videoID := resolveWistiaLinkGraphQL(pageURL, linkHashedId); videoID != "" {
@@ -266,7 +371,7 @@ func resolveWistiaLinkGraphQL(pageURL, linkHashedId string) string {
 		"query": "query AudienceLink($hashedId: HashedId!) {\n  audienceLink(hashedId: $hashedId) {\n    id\n    status\n    validFrom\n    media {\n      id\n      ...anonymousMedia\n      __typename\n    }\n    __typename\n  }\n}\n\nfragment anonymousMedia on AnonymousMedia {\n  __typename\n  id\n  hashedId\n  aspectRatio\n  name\n  displayDescription\n  publicCommentsSelection\n  playerColor\n  mediaType\n  createdByRecord\n  hasMediaPage\n  hasReadyTimeCodedTranscript\n  hasSpeakers\n  mediaPage {\n    id\n    hasCustomizations\n    customizations\n    __typename\n  }\n  imageUrl\n  permissionsForCurrentContact {\n    canDownload\n    __typename\n  }\n  topLevelAudienceComments {\n    pageInfo {\n      endCursor\n      hasNextPage\n      __typename\n    }\n    edges {\n      node {\n        id\n        ...anonymousAudienceCommentFields\n        replies {\n          id\n          ...anonymousAudienceCommentFields\n          __typename\n        }\n        __typename\n      }\n      __typename\n    }\n    __typename\n  }\n  topLevelTeamComments {\n    pageInfo {\n      endCursor\n      hasNextPage\n      __typename\n    }\n    edges {\n      node {\n        id\n        ...anonymousTeamCommentFields\n        replies {\n          id\n          ...anonymousTeamCommentFields\n          __typename\n        }\n        __typename\n      }\n      __typename\n    }\n    __typename\n  }\n  account {\n    id\n    numericId\n    wistiaBrandingOptional\n    __typename\n  }\n}\n\nfragment anonymousAudienceCommentFields on AnonymousComment {\n  id\n  displayName\n  initials\n  body\n  createdAt\n  updatedAt\n  editedAt\n  mediaTimestamp\n  canEdit\n  canDelete\n  __typename\n}\n\nfragment anonymousTeamCommentFields on AnonymousTeamComment {\n  id\n  displayName\n  initials\n  body\n  bodyHtml\n  createdAt\n  updatedAt\n  editedAt\n  mediaTimestamp\n  canEdit\n  canDelete\n  __typename\n}"
 	}`
 
-	fmt.Printf("Making GraphQL request to: %s\n", graphqlURL)
+	// fmt.Printf("Making GraphQL request to: %s\n", graphqlURL) // Debug message hidden
 
 	// Create the HTTP request with proper headers
 	req, err := http.NewRequest("POST", graphqlURL, strings.NewReader(query))
@@ -308,7 +413,7 @@ func resolveWistiaLinkGraphQL(pageURL, linkHashedId string) string {
 	}
 
 	bodyStr := string(body)
-	fmt.Printf("GraphQL response: %s\n", bodyStr)
+	// fmt.Printf("GraphQL response: %s\n", bodyStr) // Debug message hidden
 
 	// Extract the video hashedId from the response
 	// Look for "hashedId":"x9f2k7m8vq" in the media object
@@ -477,7 +582,7 @@ func findBestVideoURL(assetInfo map[string]interface{}) string {
 	return bestURL
 }
 
-// downloadFile downloads a file from URL to the specified path
+// downloadFile downloads a file from URL to the specified path with progress tracking
 func downloadFile(url, filepath string) bool {
 	// Create the file
 	out, err := os.Create(filepath)
@@ -501,14 +606,61 @@ func downloadFile(url, filepath string) bool {
 		return false
 	}
 
-	// Writer the body to file
-	_, err = io.Copy(out, resp.Body)
-	if err != nil {
-		fmt.Printf("❌ Error saving file: %v\n", err)
-		return false
+	// Get the content length for progress tracking
+	contentLength := resp.ContentLength
+	if contentLength <= 0 {
+		// If content length is unknown, download without progress
+		fmt.Printf("📥 Downloading (size unknown)...")
+		_, err = io.Copy(out, resp.Body)
+		if err != nil {
+			fmt.Printf("\r❌ Error saving file: %v\n", err)
+			return false
+		}
+		fmt.Printf("\r✅ Downloaded successfully\n")
+		return true
 	}
 
-	fmt.Printf("✅ Downloaded successfully\n")
+	// Create a progress reader
+	var downloaded int64
+	buffer := make([]byte, 32*1024) // 32KB buffer
+	lastPercent := -1
+
+	for {
+		n, err := resp.Body.Read(buffer)
+		if n > 0 {
+			_, writeErr := out.Write(buffer[:n])
+			if writeErr != nil {
+				fmt.Printf("\r❌ Error writing to file: %v\n", writeErr)
+				return false
+			}
+			downloaded += int64(n)
+
+			// Calculate and display progress
+			percent := int(float64(downloaded) / float64(contentLength) * 100)
+			if percent != lastPercent {
+				// Create progress bar (20 characters wide)
+				barWidth := 20
+				filled := int(float64(barWidth) * float64(percent) / 100)
+				bar := strings.Repeat("█", filled) + strings.Repeat("░", barWidth-filled)
+
+				sizeMB := float64(contentLength) / 1024 / 1024
+				downloadedMB := float64(downloaded) / 1024 / 1024
+
+				// Use \r to overwrite the same line
+				fmt.Printf("\r📥 [%s] %3d%% (%.2f/%.2f MB)", bar, percent, downloadedMB, sizeMB)
+				lastPercent = percent
+			}
+		}
+		if err != nil {
+			if err != io.EOF {
+				fmt.Printf("\r❌ Error reading: %v\n", err)
+				return false
+			}
+			break
+		}
+	}
+
+	fmt.Printf("\r✅ Downloaded successfully (%.2f MB)%s\n", float64(contentLength)/1024/1024, strings.Repeat(" ", 10))
 	return true
 }
 
