@@ -1,12 +1,18 @@
 # Wistia Downloader
 
-A command-line tool to download videos from Wistia hosting platform. Supports multiple input methods and cross-platform compilation.
+A command-l- **Windows**: 
+  - Intel/AMD: [`wistia-downloader-windows-amd64.exe-1.1.0.zip`](build/wistia-downloader-windows-amd64.exe-1.1.0.zip)
+  - ARM: [`wistia-downloader-windows-arm64.exe-1.1.0.zip`](build/wistia-downloader-windows-arm64.exe-1.1.0.zip) tool to download videos from Wistia hosting platform. Supports multiple input methods, individual video downloads, and bulk channel downloads.
 
 ## Features
 
-- Download videos using Wistia video ID
+- Download individual videos using Wistia video ID
 - Extract video ID from Wistia page URLs
 - Extract video ID from HTML snippets (from "Copy link" functionality)
+- **NEW**: Download entire Wistia channels with all videos
+- Cross-platform support (macOS, Linux, Windows)
+- User confirmation for bulk downloads
+- Organized file naming based on video titles and sections
 
 ## Installation
 
@@ -15,8 +21,8 @@ A command-line tool to download videos from Wistia hosting platform. Supports mu
 Download the latest pre-built binaries from the releases section for your platform:
 
 - **macOS**: 
-  - Intel: [`wistia-downloader-macos-amd64-1.0.1.tar.gz`](build/wistia-downloader-macos-amd64-1.0.1.tar.gz)
-  - Apple Silicon: [`wistia-downloader-macos-arm64-1.0.1.tar.gz`](build/wistia-downloader-macos-arm64-1.0.1.tar.gz)
+  - Intel: [`wistia-downloader-macos-amd64-1.1.0.tar.gz`](build/wistia-downloader-macos-amd64-1.1.0.tar.gz)
+  - Apple Silicon: [`wistia-downloader-macos-arm64-1.1.0.tar.gz`](build/wistia-downloader-macos-arm64-1.1.0.tar.gz)
   
   **Note for macOS users**: You may need to disable Gatekeeper to run the binary. After extracting, run:
   ```bash
@@ -24,11 +30,11 @@ Download the latest pre-built binaries from the releases section for your platfo
   ```
   Ensure the name of the binary reflects the version you are running.
 - **Linux**: 
-  - Intel/AMD: [`wistia-downloader-linux-amd64-1.0.1.tar.gz`](build/wistia-downloader-linux-amd64-1.0.1.tar.gz)
-  - ARM: [`wistia-downloader-linux-arm64-1.0.1.tar.gz`](build/wistia-downloader-linux-arm64-1.0.1.tar.gz)
+  - Intel/AMD: [`wistia-downloader-linux-amd64-1.1.0.tar.gz`](build/wistia-downloader-linux-amd64-1.1.0.tar.gz)
+  - ARM: [`wistia-downloader-linux-arm64-1.1.0.tar.gz`](build/wistia-downloader-linux-arm64-1.1.0.tar.gz)
 - **Windows**: 
-  - Intel/AMD: [`wistia-downloader-windows-amd64.exe-1.0.1.zip`](build/wistia-downloader-windows-amd64.exe-1.0.1.zip)
-  - ARM: [`wistia-downloader-windows-arm64.exe-1.0.1.zip`](build/wistia-downloader-windows-arm64.exe-1.0.1.zip)
+  - Intel/AMD: [`wistia-downloader-windows-amd64.exe-1.1.0.zip`](build/wistia-downloader-windows-amd64.exe-1.1.0.zip)
+  - ARM: [`wistia-downloader-windows-arm64.exe-1.1.0.zip`](build/wistia-downloader-windows-arm64.exe-1.1.0.zip)
 
 ### Build from Source
 
@@ -56,18 +62,18 @@ go build -o wistia-downloader ./src
 
 ## Usage
 
-The tool supports three different input methods:
+The tool supports multiple input methods for both individual videos and entire channels:
 
 ### 1. Direct Video ID
 
 ```bash
-./wistia-downloader -id tra6gsm6rl -o my-video.mp4
+./wistia-downloader -id j4n8x2m7vw -o my-video.mp4
 ```
 
 ### 2. Wistia Page URL
 
 ```bash
-./wistia-downloader -url "https://workato.wistia.com/a/9cqncbbbtw05gh8" -o my-video.mp4
+./wistia-downloader -url "https://example.wistia.com/a/h3b2k9f5xp" -o my-video.mp4
 ```
 
 ### 3. HTML Snippet (from "Copy link")
@@ -76,12 +82,28 @@ The tool supports three different input methods:
 ./wistia-downloader -clipboard '<div class="wistia_responsive_padding">...' -o my-video.mp4
 ```
 
+### 4. Channel Downloads (NEW)
+
+Download entire Wistia channels with all videos:
+
+```bash
+./wistia-downloader -url "https://fast.wistia.com/embed/channel/m9k8d7f2jq?wchannelid=m9k8d7f2jq"
+```
+
+**Channel Download Features:**
+- Automatically detects channel pages
+- Shows video count and section breakdown
+- Prompts for user confirmation before bulk download
+- Ignores `-o` flag and uses descriptive filenames
+- Creates organized directory structure
+- Shows download progress and summary
+
 ### Command Line Options
 
-- `-id <videoID>`: Wistia video ID (e.g., tra6gsm6rl)
-- `-url <pageURL>`: Main Wistia page URL
+- `-id <videoID>`: Wistia video ID (e.g., j4n8x2m7vw)
+- `-url <pageURL>`: Main Wistia page URL or channel URL
 - `-clipboard <htmlSnippet>`: HTML snippet containing wvideo parameter
-- `-o <filename>`: Output filename (default: video.mp4)
+- `-o <filename>`: Output filename (default: video.mp4, ignored for channel downloads)
 
 ## Building
 
@@ -128,7 +150,7 @@ make clean
 make test
 
 # Run locally with arguments
-make run ARGS="-id tra6gsm6rl"
+make run ARGS="-id j4n8x2m7vw"
 
 # Install dependencies
 make install-deps

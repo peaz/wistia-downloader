@@ -1,23 +1,67 @@
 package main
 
 import (
+	"bufio"
+	"encoding/base64"
+	"encoding/json"
 	"flag"
 	"fmt"
 	"io"
 	"net/http"
+	"net/url"
 	"os"
+	"path/filepath"
 	"regexp"
 	"strings"
+	"time"
 )
 
+// Video represents a single video from the channel
+type Video struct {
+	ID             string  `json:"id"`
+	Title          string  `json:"title"`
+	Description    string  `json:"description"`
+	Duration       float64 `json:"duration"`
+	Thumbnail      string  `json:"thumbnail"`
+	ThumbnailSmall string  `json:"thumbnailSmall"`
+	Position       int64   `json:"position"`
+	Section        string  `json:"section"`
+	Index          int     `json:"index"`
+	AspectRatio    float64 `json:"aspectRatio"`
+}
+
+// ChannelData represents the decoded channel data
+type ChannelData struct {
+	HashedID  string `json:"hashedId"`
+	NumericID int    `json:"numericId"`
+	Series    []struct {
+		Sections []struct {
+			Name     string `json:"name"`
+			Episodes []struct {
+				HashedID           string  `json:"hashedId"`
+				Name               string  `json:"name"`
+				EpisodeTitle       string  `json:"episodeTitle"`
+				EpisodeDescription string  `json:"episodeDescription"`
+				DurationInSeconds  float64 `json:"durationInSeconds"`
+				StillURL           string  `json:"stillUrl"`
+				ThumbnailURL       string  `json:"thumbnailUrl"`
+				Position           int64   `json:"position"`
+				Index              int     `json:"index"`
+				AspectRatio        float64 `json:"aspectRatio"`
+			} `json:"episodes"`
+		} `json:"sections"`
+	} `json:"series"`
+}
+
 func main() {
-	videoID := flag.String("id", "", "Wistia video ID (e.g. m8k4z7x9pq)")
-	pageURL := flag.String("url", "", "Main Wistia page URL (e.g. https://site.wistia.com/a/x7k2m9n5qp3w)")
+	videoID := flag.String("id", "", "Wistia video ID (e.g. j4n8x2m7vw)")
+	pageURL := flag.String("url", "", "Main Wistia page URL (e.g. https://example.wistia.com/medias/h3b2k9f5xp)")
 	clipboardHTML := flag.String("clipboard", "", "HTML snippet from 'Copy link' (contains wvideo parameter)")
-	output := flag.String("o", "video.mp4", "Output filename")
+	output := flag.String("o", "video.mp4", "Output filename (ignored for channel downloads)")
 	flag.Parse()
 
 	var id string
+
 	if *videoID != "" {
 		id = *videoID
 	} else if *clipboardHTML != "" {
@@ -28,6 +72,13 @@ func main() {
 		}
 		fmt.Println("Found video ID from HTML snippet:", id)
 	} else if *pageURL != "" {
+		// Check if this is a channel page
+		if isChannelURL(*pageURL) {
+			fmt.Println("Detected Wistia channel page!")
+			handleChannelDownload(*pageURL, *output)
+			return
+		}
+
 		// First check if the URL contains wmediaid parameter
 		id = extractVideoIDFromURL(*pageURL)
 		if id != "" {
@@ -43,72 +94,133 @@ func main() {
 		}
 	} else {
 		fmt.Println("Usage: wistia-downloader -id <videoID> OR -url <WistiaPageURL> OR -clipboard <HTMLSnippet> [-o <output.mp4>]")
+		fmt.Println("  For channel pages: -url <WistiaChannelURL> (will download all videos)")
 		os.Exit(1)
 	}
 
-	embedURL := "http://fast.wistia.net/embed/iframe/" + id
-	resp, err := http.Get(embedURL)
+	// Download single video
+	downloadSingleVideo(id, *output)
+}
+
+// isChannelURL checks if the URL is a Wistia channel page
+func isChannelURL(pageURL string) bool {
+	return strings.Contains(pageURL, "/embed/channel/") || strings.Contains(pageURL, "wchannelid=")
+}
+
+// handleChannelDownload processes a channel page and downloads all videos
+func handleChannelDownload(pageURL, outputFlag string) {
+	fmt.Println("Fetching channel page...")
+
+	// Fetch the channel page HTML
+	resp, err := http.Get(pageURL)
 	if err != nil {
-		fmt.Println("Error fetching embed page:", err)
+		fmt.Printf("Error fetching channel page: %v\n", err)
 		os.Exit(1)
 	}
 	defer resp.Body.Close()
+
 	body, err := io.ReadAll(resp.Body)
 	if err != nil {
-		fmt.Println("Error reading embed page:", err)
+		fmt.Printf("Error reading channel page: %v\n", err)
 		os.Exit(1)
 	}
 
-	videoURL := extractVideoURL(string(body))
-	if videoURL == "" {
-		fmt.Println("Could not find video URL in embed page.")
-		os.Exit(1)
-	}
-	videoURL = strings.Replace(videoURL, ".bin", ".mp4", 1)
-	fmt.Println("Downloading:", videoURL)
+	htmlContent := string(body)
 
-	out, err := os.Create(*output)
+	// Extract and decode the channel data
+	channelData, err := extractChannelData(htmlContent)
 	if err != nil {
-		fmt.Println("Error creating output file:", err)
+		fmt.Printf("Error extracting channel data: %v\n", err)
 		os.Exit(1)
 	}
-	defer out.Close()
 
-	videoResp, err := http.Get(videoURL)
+	// Convert to videos list
+	videos := extractVideosFromChannelData(channelData)
+
+	if len(videos) == 0 {
+		fmt.Println("No videos found in channel!")
+		os.Exit(1)
+	}
+
+	// Display channel information
+	fmt.Printf("\n📺 Channel Information:\n")
+	fmt.Printf("Channel ID: %s\n", channelData.HashedID)
+	fmt.Printf("Total videos found: %d\n", len(videos))
+
+	// Group videos by section
+	sectionCounts := make(map[string]int)
+	for _, video := range videos {
+		sectionCounts[video.Section]++
+	}
+
+	fmt.Println("\nVideos by section:")
+	for section, count := range sectionCounts {
+		fmt.Printf("  %s: %d videos\n", section, count)
+	}
+
+	fmt.Printf("\nNote: -o flag will be ignored. Files will be named based on video titles.\n")
+
+	// Ask user for confirmation
+	fmt.Print("\nDo you want to download all videos? (y/N): ")
+	reader := bufio.NewReader(os.Stdin)
+	response, err := reader.ReadString('\n')
 	if err != nil {
-		fmt.Println("Error downloading video:", err)
-		os.Exit(1)
-	}
-	defer videoResp.Body.Close()
-
-	_, err = io.Copy(out, videoResp.Body)
-	if err != nil {
-		fmt.Println("Error saving video:", err)
+		fmt.Printf("Error reading input: %v\n", err)
 		os.Exit(1)
 	}
 
-	fmt.Println("Download complete:", *output)
-}
+	response = strings.TrimSpace(strings.ToLower(response))
+	if response != "y" && response != "yes" {
+		fmt.Println("Download cancelled.")
+		os.Exit(0)
+	}
 
-func extractVideoURL(body string) string {
-	// Try "type":"original" first
-	re := regexp.MustCompile(`"type":"original".*?"url":"(http[^"]+)"`)
-	match := re.FindStringSubmatch(body)
-	if len(match) > 1 {
-		return match[1]
+	// Create downloads directory
+	downloadsDir := "wistia_downloads"
+	if err := os.MkdirAll(downloadsDir, 0755); err != nil {
+		fmt.Printf("Error creating downloads directory: %v\n", err)
+		os.Exit(1)
 	}
-	// Try "type":"hd_mp4_video"
-	re = regexp.MustCompile(`"type":"hd_mp4_video".*?"url":"(http[^"]+)"`)
-	match = re.FindStringSubmatch(body)
-	if len(match) > 1 {
-		return match[1]
+
+	fmt.Printf("\nStarting download of %d videos to %s/\n", len(videos), downloadsDir)
+	fmt.Println(strings.Repeat("=", 60))
+
+	// Download all videos
+	successful := 0
+	failed := 0
+
+	for i, video := range videos {
+		fmt.Printf("\n[%d/%d] %s\n", i+1, len(videos), video.Title)
+
+		filename := generateVideoFilename(video)
+		outputPath := filepath.Join(downloadsDir, filename+".mp4")
+
+		// Check if file already exists
+		if _, err := os.Stat(outputPath); err == nil {
+			fmt.Printf("⏭️  Skipping - file already exists: %s\n", filename+".mp4")
+			continue
+		}
+
+		if downloadSingleVideoToPath(video.ID, outputPath) {
+			successful++
+		} else {
+			failed++
+		}
+
+		// Small delay between downloads
+		time.Sleep(1 * time.Second)
 	}
-	return ""
+
+	fmt.Println(strings.Repeat("=", 60))
+	fmt.Printf("📊 Download Summary:\n")
+	fmt.Printf("✅ Successful: %d\n", successful)
+	fmt.Printf("❌ Failed: %d\n", failed)
+	fmt.Printf("📁 Files saved to: %s/\n", downloadsDir)
 }
 
 func extractVideoIDFromURL(url string) string {
 	// Extract video ID from URL parameters, specifically wmediaid
-	// Example: https://fast.wistia.com/embed/channel/xk553pblxt?wchannelid=xk553pblxt&wmediaid=r33ol54chk
+	// Example: https://fast.wistia.com/embed/channel/m9k8d7f2jq?wchannelid=m9k8d7f2jq&wmediaid=p5v8q3n7rb
 	re := regexp.MustCompile(`[?&]wmediaid=([a-zA-Z0-9]+)`)
 	match := re.FindStringSubmatch(url)
 	if len(match) > 1 {
@@ -199,7 +311,7 @@ func resolveWistiaLinkGraphQL(pageURL, linkHashedId string) string {
 	fmt.Printf("GraphQL response: %s\n", bodyStr)
 
 	// Extract the video hashedId from the response
-	// Look for "hashedId":"4c0kmodatj" in the media object
+	// Look for "hashedId":"x9f2k7m8vq" in the media object
 	re := regexp.MustCompile(`"media":\s*{[^}]*"hashedId"\s*:\s*"([a-zA-Z0-9]+)"`)
 	match := re.FindStringSubmatch(bodyStr)
 	if len(match) > 1 {
@@ -212,6 +324,195 @@ func resolveWistiaLinkGraphQL(pageURL, linkHashedId string) string {
 	return ""
 }
 
+// downloadSingleVideo downloads a video with the given ID to the specified output file
+func downloadSingleVideo(videoID, output string) {
+	downloadSingleVideoToPath(videoID, output)
+}
+
+// downloadSingleVideoToPath downloads a video and returns success/failure
+func downloadSingleVideoToPath(videoID, outputPath string) bool {
+	// Get asset info for the video
+	assetResp, err := http.Get(fmt.Sprintf("https://fast.wistia.com/embed/medias/%s.json", videoID))
+	if err != nil {
+		fmt.Printf("❌ Error fetching video info: %v\n", err)
+		return false
+	}
+	defer assetResp.Body.Close()
+
+	var assetInfo map[string]interface{}
+	if err := json.NewDecoder(assetResp.Body).Decode(&assetInfo); err != nil {
+		fmt.Printf("❌ Error parsing video info: %v\n", err)
+		return false
+	}
+
+	// Find the best quality video URL
+	videoURL := findBestVideoURL(assetInfo)
+	if videoURL == "" {
+		fmt.Printf("❌ No video download URL found\n")
+		return false
+	}
+
+	// Download the video
+	fmt.Printf("🎬 Downloading: %s\n", filepath.Base(outputPath))
+	return downloadFile(videoURL, outputPath)
+}
+
+// extractChannelData extracts and decodes channel data from HTML content
+func extractChannelData(htmlContent string) (*ChannelData, error) {
+	// Find the encoded channel data in the HTML
+	// Look for pattern like: window['wchanneljsonp-xxx'] = JSON.parse(decodeURIComponent(atob("encoded_data")));
+	re := regexp.MustCompile(`window\['wchanneljsonp-[^']+'\]\s*=\s*JSON\.parse\(decodeURIComponent\(atob\("([^"]+)"\)\)\);`)
+	matches := re.FindStringSubmatch(htmlContent)
+
+	if len(matches) < 2 {
+		return nil, fmt.Errorf("channel data not found in HTML")
+	}
+
+	encodedData := matches[1]
+
+	// First base64 decode
+	decodedOnce, err := base64.StdEncoding.DecodeString(encodedData)
+	if err != nil {
+		return nil, fmt.Errorf("base64 decode failed: %v", err)
+	}
+
+	// Then URL decode
+	decodedTwice, err := url.QueryUnescape(string(decodedOnce))
+	if err != nil {
+		return nil, fmt.Errorf("URL decode failed: %v", err)
+	}
+
+	// Parse JSON
+	var channelData ChannelData
+	if err := json.Unmarshal([]byte(decodedTwice), &channelData); err != nil {
+		return nil, fmt.Errorf("JSON decode failed: %v", err)
+	}
+
+	return &channelData, nil
+}
+
+// extractVideosFromChannelData converts channel data to a list of videos
+func extractVideosFromChannelData(channelData *ChannelData) []Video {
+	var videos []Video
+
+	for _, series := range channelData.Series {
+		for _, section := range series.Sections {
+			for _, episode := range section.Episodes {
+				videos = append(videos, Video{
+					ID:          episode.HashedID,
+					Title:       episode.Name,
+					Description: episode.EpisodeDescription,
+					Section:     section.Name,
+				})
+			}
+		}
+	}
+
+	return videos
+}
+
+// generateVideoFilename creates a safe filename from video information
+func generateVideoFilename(video Video) string {
+	// Start with section and title
+	filename := ""
+	if video.Section != "" {
+		filename = video.Section + " - " + video.Title
+	} else {
+		filename = video.Title
+	}
+
+	// Replace unsafe characters
+	filename = regexp.MustCompile(`[<>:"/\\|?*]`).ReplaceAllString(filename, "_")
+	filename = regexp.MustCompile(`\s+`).ReplaceAllString(filename, " ")
+	filename = strings.TrimSpace(filename)
+
+	// Truncate if too long
+	if len(filename) > 200 {
+		filename = filename[:200]
+	}
+
+	return filename
+}
+
+// findBestVideoURL finds the highest quality video URL from asset info
+func findBestVideoURL(assetInfo map[string]interface{}) string {
+	media, ok := assetInfo["media"].(map[string]interface{})
+	if !ok {
+		return ""
+	}
+
+	assets, ok := media["assets"].([]interface{})
+	if !ok {
+		return ""
+	}
+
+	var bestURL string
+	var bestBitrate float64
+
+	for _, assetInterface := range assets {
+		asset, ok := assetInterface.(map[string]interface{})
+		if !ok {
+			continue
+		}
+
+		assetType, ok := asset["type"].(string)
+		if !ok || assetType != "original" {
+			continue
+		}
+
+		url, ok := asset["url"].(string)
+		if !ok {
+			continue
+		}
+
+		// Get bitrate if available
+		bitrate, _ := asset["bitrate"].(float64)
+
+		if bestURL == "" || bitrate > bestBitrate {
+			bestURL = url
+			bestBitrate = bitrate
+		}
+	}
+
+	return bestURL
+}
+
+// downloadFile downloads a file from URL to the specified path
+func downloadFile(url, filepath string) bool {
+	// Create the file
+	out, err := os.Create(filepath)
+	if err != nil {
+		fmt.Printf("❌ Error creating file: %v\n", err)
+		return false
+	}
+	defer out.Close()
+
+	// Get the data
+	resp, err := http.Get(url)
+	if err != nil {
+		fmt.Printf("❌ Error downloading: %v\n", err)
+		return false
+	}
+	defer resp.Body.Close()
+
+	// Check server response
+	if resp.StatusCode != http.StatusOK {
+		fmt.Printf("❌ Bad status: %s\n", resp.Status)
+		return false
+	}
+
+	// Writer the body to file
+	_, err = io.Copy(out, resp.Body)
+	if err != nil {
+		fmt.Printf("❌ Error saving file: %v\n", err)
+		return false
+	}
+
+	fmt.Printf("✅ Downloaded successfully\n")
+	return true
+}
+
+// extractVideoIDFromHTML extracts video ID from HTML snippet
 func extractVideoIDFromHTML(htmlSnippet string) string {
 	// Extract video ID from HTML snippet (like from "Copy link")
 	// Look for wvideo=xxx pattern
