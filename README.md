@@ -1,8 +1,6 @@
 # Wistia Downloader
 
-A command-l- **Windows**: 
-  - Intel/AMD: [`wistia-downloader-windows-amd64.exe-1.1.0.zip`](build/wistia-downloader-windows-amd64.exe-1.1.0.zip)
-  - ARM: [`wistia-downloader-windows-arm64.exe-1.1.0.zip`](build/wistia-downloader-windows-arm64.exe-1.1.0.zip) tool to download videos from Wistia hosting platform. Supports multiple input methods, individual video downloads, and bulk channel downloads.
+A command-line tool to download videos from Wistia hosting platform. Supports multiple input methods, individual video downloads, and bulk channel downloads.
 
 ## Features
 
