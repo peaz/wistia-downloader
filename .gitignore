@@ -7,3 +7,4 @@ build/wistia-downloader-macos-arm64
 build/wistia-downloader-windows-amd64.exe
 build/wistia-downloader-windows-arm64.exe
 test
+wistia-downloader
