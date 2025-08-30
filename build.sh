@@ -44,13 +44,13 @@ for PLATFORM in "${PLATFORMS[@]}"; do
         PLATFORM_NAME="macos"
     fi
     
-    # Set output filename
-    OUTPUT_NAME="${APP_NAME}-${PLATFORM_NAME}-${GOARCH}"
+    # Set binary filename (always wistia-downloader with .exe for Windows)
+    BINARY_NAME="${APP_NAME}"
     if [ ${GOOS} = "windows" ]; then
-        OUTPUT_NAME="${OUTPUT_NAME}.exe"
+        BINARY_NAME="${BINARY_NAME}.exe"
     fi
     
-    OUTPUT_PATH="${BUILD_DIR}/${OUTPUT_NAME}"
+    OUTPUT_PATH="${BUILD_DIR}/${BINARY_NAME}"
     
     echo -e "${YELLOW}Building for ${PLATFORM_NAME}/${GOARCH}...${NC}"
     
@@ -60,47 +60,35 @@ for PLATFORM in "${PLATFORMS[@]}"; do
     if [ $? -eq 0 ]; then
         # Get file size
         SIZE=$(du -h ${OUTPUT_PATH} | cut -f1)
-        echo -e "${GREEN}✓ Built ${OUTPUT_NAME} (${SIZE})${NC}"
+        echo -e "${GREEN}✓ Built ${BINARY_NAME} for ${PLATFORM_NAME}/${GOARCH} (${SIZE})${NC}"
+        
+        # Create archive immediately
+        ARCHIVE_NAME="${APP_NAME}-${PLATFORM_NAME}-${GOARCH}-${VERSION}"
+        
+        cd ${BUILD_DIR}
+        if [ ${GOOS} = "windows" ]; then
+            # Create zip for Windows
+            zip -q "${ARCHIVE_NAME}.zip" "${BINARY_NAME}"
+            echo -e "${GREEN}✓ Created ${ARCHIVE_NAME}.zip${NC}"
+        else
+            # Create tar.gz for Unix-like systems
+            tar -czf "${ARCHIVE_NAME}.tar.gz" "${BINARY_NAME}"
+            echo -e "${GREEN}✓ Created ${ARCHIVE_NAME}.tar.gz${NC}"
+        fi
+        
+        # Remove the binary file to keep only archives
+        rm "${BINARY_NAME}"
+        cd ..
+        
     else
         echo -e "${RED}✗ Failed to build for ${PLATFORM_NAME}/${GOARCH}${NC}"
         exit 1
     fi
 done
 
-echo -e "${GREEN}Build complete! Binaries created in ${BUILD_DIR}/${NC}"
-echo -e "${BLUE}Built binaries:${NC}"
-ls -la ${BUILD_DIR}/
+echo -e "${GREEN}Build complete! All platform archives created in ${BUILD_DIR}/${NC}"
 
-# Create archives for distribution
-echo -e "${BLUE}Creating distribution archives...${NC}"
-cd ${BUILD_DIR}
-
-for file in *; do
-    if [ -f "$file" ]; then
-        # Extract platform info from filename
-        if [[ $file =~ ${APP_NAME}-(.+)-(.+)(\..+)?$ ]]; then
-            PLATFORM_NAME="${BASH_REMATCH[1]}"
-            GOARCH="${BASH_REMATCH[2]}"
-            EXT="${BASH_REMATCH[3]}"
-            
-            ARCHIVE_NAME="${APP_NAME}-${PLATFORM_NAME}-${GOARCH}-${VERSION}"
-            
-            if [ ${PLATFORM_NAME} = "windows" ]; then
-                # Create zip for Windows
-                zip -q "${ARCHIVE_NAME}.zip" "$file"
-                echo -e "${GREEN}✓ Created ${ARCHIVE_NAME}.zip${NC}"
-            else
-                # Create tar.gz for Unix-like systems
-                tar -czf "${ARCHIVE_NAME}.tar.gz" "$file"
-                echo -e "${GREEN}✓ Created ${ARCHIVE_NAME}.tar.gz${NC}"
-            fi
-        fi
-    fi
-done
-
-cd ..
-
-echo -e "${GREEN}All builds completed successfully!${NC}"
+# Display final summary
 echo -e "${BLUE}Distribution files:${NC}"
 ls -la ${BUILD_DIR}/*.{tar.gz,zip} 2>/dev/null || true
 
@@ -108,5 +96,7 @@ ls -la ${BUILD_DIR}/*.{tar.gz,zip} 2>/dev/null || true
 echo -e "${BLUE}Build Summary:${NC}"
 echo "  Version: ${VERSION}"
 echo "  Platforms: macOS (Intel/ARM), Linux (Intel/ARM), Windows (Intel/ARM)"
+echo "  Binary name: ${APP_NAME} (wistia-downloader.exe for Windows)"
 echo "  Location: ${BUILD_DIR}/"
+echo -e "${YELLOW}Note: All binaries are named '${APP_NAME}' when extracted from archives${NC}"
 echo -e "${YELLOW}Tip: Set VERSION environment variable to customize version (e.g., VERSION=1.0.0 ./build.sh)${NC}"

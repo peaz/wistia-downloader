@@ -24,15 +24,16 @@ Download the latest pre-built binaries from the releases section for your platfo
   
   **Note for macOS users**: You may need to disable Gatekeeper to run the binary. After extracting, run:
   ```bash
-  sudo xattr -rd com.apple.quarantine ./wistia-downloader-macos-arm64
+  sudo xattr -rd com.apple.quarantine ./wistia-downloader
   ```
-  Ensure the name of the binary reflects the version you are running.
 - **Linux**: 
   - Intel/AMD: [`wistia-downloader-linux-amd64-1.1.0.tar.gz`](build/wistia-downloader-linux-amd64-1.1.0.tar.gz)
   - ARM: [`wistia-downloader-linux-arm64-1.1.0.tar.gz`](build/wistia-downloader-linux-arm64-1.1.0.tar.gz)
 - **Windows**: 
-  - Intel/AMD: [`wistia-downloader-windows-amd64.exe-1.1.0.zip`](build/wistia-downloader-windows-amd64.exe-1.1.0.zip)
-  - ARM: [`wistia-downloader-windows-arm64.exe-1.1.0.zip`](build/wistia-downloader-windows-arm64.exe-1.1.0.zip)
+  - Intel/AMD: [`wistia-downloader-windows-amd64-1.1.0.zip`](build/wistia-downloader-windows-amd64-1.1.0.zip)
+  - ARM: [`wistia-downloader-windows-arm64-1.1.0.zip`](build/wistia-downloader-windows-arm64-1.1.0.zip)
+
+All archives extract to a binary named `wistia-downloader` (or `wistia-downloader.exe` on Windows) regardless of platform.
 
 ### Build from Source
 
@@ -123,9 +124,11 @@ VERSION=1.0.0 ./build.sh
 - Windows (Intel/AMD64 and ARM64)
 
 The build script will:
-1. Create optimized binaries for all platforms
+1. Create optimized binaries with consistent naming (`wistia-downloader` or `wistia-downloader.exe` for Windows)
 2. Generate distribution archives (`.tar.gz` for Unix, `.zip` for Windows)
-3. Display build summary with file sizes
+3. Maintain platform-specific archive names (e.g., `wistia-downloader-macos-arm64-1.1.0.tar.gz`)
+4. Clean up build directory by keeping only the distribution archives
+5. Display build summary with file sizes
 
 ### Makefile
 
