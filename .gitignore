@@ -1,4 +1,3 @@
-resource
 .DS_Store
 build/wistia-downloader-linux-amd64
 build/wistia-downloader-linux-arm64

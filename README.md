@@ -89,6 +89,8 @@ Download entire Wistia channels with all videos:
 ./wistia-downloader -url "https://fast.wistia.com/embed/channel/m9k8d7f2jq?wchannelid=m9k8d7f2jq"
 ```
 
+![Wistia Downloader Screenshot](resources/wistia-downloader-screenshot.jpg)
+
 **Channel Download Features:**
 - Automatically detects channel pages
 - Shows video count and section breakdown
