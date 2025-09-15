@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"flag"
 	"fmt"
+	"html"
 	"io"
 	"net/http"
 	"net/url"
@@ -87,12 +88,12 @@ func main() {
 					id = videoIDFromURL
 				} else {
 					fmt.Println("Downloading entire channel...")
-					handleChannelDownload(*pageURL, *output)
+					handleChannelDownload(*pageURL)
 					return
 				}
 			} else {
 				fmt.Println("Detected Wistia channel page!")
-				handleChannelDownload(*pageURL, *output)
+				handleChannelDownload(*pageURL)
 				return
 			}
 		} else {
@@ -158,11 +159,12 @@ func askUserChoice(videoID string) string {
 	}
 
 	choice := strings.TrimSpace(input)
-	if choice == "1" {
+	switch choice {
+	case "1":
 		return "video"
-	} else if choice == "2" {
+	case "2":
 		return "channel"
-	} else {
+	default:
 		fmt.Println("Invalid choice. Defaulting to single video download.")
 		return "video"
 	}
@@ -196,8 +198,15 @@ func getVideoTitle(videoID string) string {
 
 // createSafeFilename creates a safe filename from a video title
 func createSafeFilename(title string) string {
-	// Replace unsafe characters
-	filename := regexp.MustCompile(`[<>:"/\\|?*]`).ReplaceAllString(title, "_")
+	// First, decode HTML entities (like &amp; to &)
+	filename := html.UnescapeString(title)
+
+	// Replace filesystem-unsafe characters with underscore
+	// Windows/macOS/Linux unsafe characters: < > : " / \ | ? *
+	// Also handle control characters and other problematic ones
+	filename = regexp.MustCompile(`[<>:"/\\|?*\x00-\x1f\x7f]`).ReplaceAllString(filename, "_")
+
+	// Normalize whitespace (collapse multiple spaces to single space)
 	filename = regexp.MustCompile(`\s+`).ReplaceAllString(filename, " ")
 	filename = strings.TrimSpace(filename)
 
@@ -210,7 +219,7 @@ func createSafeFilename(title string) string {
 }
 
 // handleChannelDownload processes a channel page and downloads all videos
-func handleChannelDownload(pageURL, outputFlag string) {
+func handleChannelDownload(pageURL string) {
 	fmt.Println("Fetching channel page...")
 
 	// Fetch the channel page HTML
@@ -331,6 +340,15 @@ func extractVideoIDFromURL(url string) string {
 	if len(match) > 1 {
 		return match[1]
 	}
+
+	// Also check for /medias/ URL pattern
+	// Example: https://example.wistia.com/medias/abc123def456
+	mediasRe := regexp.MustCompile(`/medias/([a-zA-Z0-9]+)`)
+	mediasMatch := mediasRe.FindStringSubmatch(url)
+	if len(mediasMatch) > 1 {
+		return mediasMatch[1]
+	}
+
 	return ""
 }
 
@@ -526,8 +544,15 @@ func generateVideoFilename(video Video) string {
 		filename = video.Title
 	}
 
-	// Replace unsafe characters
-	filename = regexp.MustCompile(`[<>:"/\\|?*]`).ReplaceAllString(filename, "_")
+	// First, decode HTML entities (like &amp; to &)
+	filename = html.UnescapeString(filename)
+
+	// Replace filesystem-unsafe characters with underscore
+	// Windows/macOS/Linux unsafe characters: < > : " / \ | ? *
+	// Also handle control characters and other problematic ones
+	filename = regexp.MustCompile(`[<>:"/\\|?*\x00-\x1f\x7f]`).ReplaceAllString(filename, "_")
+
+	// Normalize whitespace (collapse multiple spaces to single space)
 	filename = regexp.MustCompile(`\s+`).ReplaceAllString(filename, " ")
 	filename = strings.TrimSpace(filename)
 

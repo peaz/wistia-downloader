@@ -5,6 +5,31 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.1.1] - 2025-09-15
+
+### Enhanced
+- **URL Parsing**: Enhanced `-url` option to support detecting media IDs from `/medias/` URL patterns
+  - Now supports URLs like `https://example.wistia.com/medias/abc123def456`
+  - Automatically extracts `abc123def456` as the media ID from the URL path
+  - Maintains backward compatibility with existing `wmediaid` parameter detection
+- **Filename Handling**: Improved file naming with proper URL decoding and filesystem safety
+  - HTML entities (like `&amp;`, `&lt;`, `&gt;`) are now properly decoded
+  - Filesystem-safe decoded characters (like `&`) are preserved in filenames
+  - Unsafe characters are replaced with underscores for better compatibility
+  - Added handling for control characters and other problematic filename characters
+
+### Changed
+- Enhanced `extractVideoIDFromURL()` function to detect multiple URL patterns
+- Improved `createSafeFilename()` and `generateVideoFilename()` functions with HTML entity decoding
+- Added `html` package import for proper HTML entity handling
+- **Code Quality**: Refactored user choice handling from if-else chain to tagged switch statement
+- **Code Cleanup**: Removed unused `outputFlag` parameter from `handleChannelDownload()` function
+
+### Technical
+- Better regex patterns for URL parsing and character replacement
+- Enhanced filename sanitization with expanded unsafe character detection
+- Improved code readability and maintainability
+
 ## [1.1.0] - 2025-08-30
 
 ### Added
