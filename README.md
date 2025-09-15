@@ -15,6 +15,12 @@ A command-line tool to download videos from Wistia hosting platform. Supports mu
 
 ## Installation
 
+### Homebrew (macOS)
+
+```bash
+brew install peaz/tap/wistia-downloader
+```
+
 ### Pre-built Binaries
 
 Download the latest pre-built binaries from the releases section for your platform:
