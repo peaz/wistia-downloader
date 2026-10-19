@@ -18,6 +18,13 @@ VERSION=${VERSION:-$(date +%Y%m%d-%H%M%S)}
 BUILD_DIR="build"
 SRC_DIR="src"
 
+# macOS code signing (Developer ID Application certificate in the login keychain)
+# Override SIGN_IDENTITY, or set it to "" to skip signing.
+SIGN_IDENTITY=${SIGN_IDENTITY-"Developer ID Application: Yin Chern Ng (9S76V3XQJW)"}
+# Optional notarization: name of a profile created with
+#   xcrun notarytool store-credentials <profile> --apple-id <id> --team-id 9S76V3XQJW
+NOTARY_PROFILE=${NOTARY_PROFILE:-}
+
 echo -e "${BLUE}Building ${APP_NAME} v${VERSION}${NC}"
 
 # Clean and create build directory
@@ -62,6 +69,28 @@ for PLATFORM in "${PLATFORMS[@]}"; do
         SIZE=$(du -h ${OUTPUT_PATH} | cut -f1)
         echo -e "${GREEN}✓ Built ${BINARY_NAME} for ${PLATFORM_NAME}/${GOARCH} (${SIZE})${NC}"
         
+        # Sign (and optionally notarize) macOS binaries so they run when installed via Homebrew
+        if [ ${GOOS} = "darwin" ] && [ -n "${SIGN_IDENTITY}" ]; then
+            if ! command -v codesign >/dev/null 2>&1; then
+                echo -e "${RED}✗ codesign not found; macOS binaries must be signed on a Mac (or set SIGN_IDENTITY=\"\")${NC}"
+                exit 1
+            fi
+            codesign --force --options runtime --timestamp --sign "${SIGN_IDENTITY}" ${OUTPUT_PATH}
+            codesign --verify --strict --verbose=2 ${OUTPUT_PATH}
+            echo -e "${GREEN}✓ Signed ${PLATFORM_NAME}/${GOARCH} with ${SIGN_IDENTITY}${NC}"
+
+            if [ -n "${NOTARY_PROFILE}" ]; then
+                # notarytool needs a zip/dmg/pkg; a bare binary can't be stapled, Gatekeeper checks online
+                NOTARY_ZIP="$(mktemp -d)/${APP_NAME}-${GOARCH}.zip"
+                ditto -c -k --keepParent ${OUTPUT_PATH} "${NOTARY_ZIP}"
+                xcrun notarytool submit "${NOTARY_ZIP}" --keychain-profile "${NOTARY_PROFILE}" --wait
+                rm -f "${NOTARY_ZIP}"
+                echo -e "${GREEN}✓ Notarized ${PLATFORM_NAME}/${GOARCH}${NC}"
+            fi
+        elif [ ${GOOS} = "darwin" ]; then
+            echo -e "${YELLOW}! SIGN_IDENTITY empty, ${PLATFORM_NAME}/${GOARCH} left unsigned${NC}"
+        fi
+
         # Create archive immediately
         ARCHIVE_NAME="${APP_NAME}-${PLATFORM_NAME}-${GOARCH}-${VERSION}"
         
@@ -99,4 +128,5 @@ echo "  Platforms: macOS (Intel/ARM), Linux (Intel/ARM), Windows (Intel/ARM)"
 echo "  Binary name: ${APP_NAME} (wistia-downloader.exe for Windows)"
 echo "  Location: ${BUILD_DIR}/"
 echo -e "${YELLOW}Note: All binaries are named '${APP_NAME}' when extracted from archives${NC}"
+echo -e "${YELLOW}Tip: Set NOTARY_PROFILE to notarize macOS binaries (see top of script)${NC}"
 echo -e "${YELLOW}Tip: Set VERSION environment variable to customize version (e.g., VERSION=1.0.0 ./build.sh)${NC}"

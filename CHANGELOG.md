@@ -13,6 +13,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Users can now install with `brew install peaz/tap/wistia-downloader`
   - Updated installation documentation with Homebrew instructions
 
+- **Signed & Notarized macOS Builds**: macOS binaries are now signed with a Developer ID certificate (hardened runtime) and notarized by Apple
+  - `build.sh` signs darwin builds (`SIGN_IDENTITY`) and notarizes them when `NOTARY_PROFILE` is set
+
 ### Changed
 - Updated README.md with Homebrew installation section
 - Reorganized installation instructions to prioritize Homebrew for macOS users

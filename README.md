@@ -26,19 +26,16 @@ brew install peaz/tap/wistia-downloader
 Download the latest pre-built binaries from the releases section for your platform:
 
 - **macOS**: 
-  - Intel: [`wistia-downloader-macos-amd64-1.1.1.tar.gz`](build/wistia-downloader-macos-amd64-1.1.1.tar.gz)
-  - Apple Silicon: [`wistia-downloader-macos-arm64-1.1.1.tar.gz`](build/wistia-downloader-macos-arm64-1.1.1.tar.gz)
+  - Intel: [`wistia-downloader-macos-amd64-1.1.2.tar.gz`](build/wistia-downloader-macos-amd64-1.1.2.tar.gz)
+  - Apple Silicon: [`wistia-downloader-macos-arm64-1.1.2.tar.gz`](build/wistia-downloader-macos-arm64-1.1.2.tar.gz)
   
-  **Note for macOS users**: You may need to disable Gatekeeper to run the binary. After extracting, run:
-  ```bash
-  sudo xattr -rd com.apple.quarantine ./wistia-downloader
-  ```
+  The macOS binaries are signed with a Developer ID certificate and notarized by Apple, so they run without any Gatekeeper workarounds.
 - **Linux**: 
-  - Intel/AMD: [`wistia-downloader-linux-amd64-1.1.1.tar.gz`](build/wistia-downloader-linux-amd64-1.1.1.tar.gz)
-  - ARM: [`wistia-downloader-linux-arm64-1.1.1.tar.gz`](build/wistia-downloader-linux-arm64-1.1.1.tar.gz)
+  - Intel/AMD: [`wistia-downloader-linux-amd64-1.1.2.tar.gz`](build/wistia-downloader-linux-amd64-1.1.2.tar.gz)
+  - ARM: [`wistia-downloader-linux-arm64-1.1.2.tar.gz`](build/wistia-downloader-linux-arm64-1.1.2.tar.gz)
 - **Windows**: 
-  - Intel/AMD: [`wistia-downloader-windows-amd64-1.1.1.zip`](build/wistia-downloader-windows-amd64-1.1.1.zip)
-  - ARM: [`wistia-downloader-windows-arm64-1.1.1.zip`](build/wistia-downloader-windows-arm64-1.1.1.zip)
+  - Intel/AMD: [`wistia-downloader-windows-amd64-1.1.2.zip`](build/wistia-downloader-windows-amd64-1.1.2.zip)
+  - ARM: [`wistia-downloader-windows-arm64-1.1.2.zip`](build/wistia-downloader-windows-arm64-1.1.2.zip)
 
 All archives extract to a binary named `wistia-downloader` (or `wistia-downloader.exe` on Windows) regardless of platform.
 
@@ -144,7 +141,7 @@ VERSION=1.0.0 ./build.sh
 The build script will:
 1. Create optimized binaries with consistent naming (`wistia-downloader` or `wistia-downloader.exe` for Windows)
 2. Generate distribution archives (`.tar.gz` for Unix, `.zip` for Windows)
-3. Maintain platform-specific archive names (e.g., `wistia-downloader-macos-arm64-1.1.1.tar.gz`)
+3. Maintain platform-specific archive names (e.g., `wistia-downloader-macos-arm64-1.1.2.tar.gz`)
 4. Clean up build directory by keeping only the distribution archives
 5. Display build summary with file sizes
 
